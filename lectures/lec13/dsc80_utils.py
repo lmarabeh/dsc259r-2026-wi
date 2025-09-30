@@ -7,21 +7,20 @@ Usage:
 from dsc80_utils import *
 """
 
-import warnings
 from pathlib import Path
-
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib_inline.backend_inline import set_matplotlib_formats
+from IPython.display import display, IFrame, HTML
+
 import plotly
-import plotly.express as px
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
-import plotly.io as pio
-import seaborn as sns
-from IPython.display import HTML, IFrame, display
-from matplotlib_inline.backend_inline import set_matplotlib_formats
+import plotly.express as px
 from plotly.subplots import make_subplots
+import plotly.io as pio
 
 # DSC 80 preferred styles
 pio.templates["dsc80"] = go.layout.Template(
@@ -47,9 +46,6 @@ np.set_printoptions(threshold=20, precision=2, suppress=True)
 pd.set_option("display.max_rows", 7)
 pd.set_option("display.max_columns", 8)
 pd.set_option("display.precision", 2)
-
-# Suppress pandas_tutor syntax warnings
-warnings.simplefilter(action="ignore", category=SyntaxWarning)
 
 # Use plotly as default plotting engine
 pd.options.plotting.backend = "plotly"
