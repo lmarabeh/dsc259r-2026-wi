@@ -24,7 +24,7 @@ grader = otter.Notebook("lab.ipynb")
 # %load_ext autoreload
 # %autoreload 2
 
-# from lab import *
+from lab import *
 
 from pathlib import Path
 import io
