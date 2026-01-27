@@ -35,7 +35,17 @@ warnings.filterwarnings("ignore")
 
 
 def clean_loans(loans):
-    ...
+    # Create a copy to avoid SettingWithCopy warnings
+    df = loans.copy()
+    df['issue_d'] = pd.to_datetime(df['issue_d'])
+    df['term'] = df['term'].str.replace(' months', '').astype(int)
+    df['emp_title'] = df['emp_title'].str.lower().str.strip()
+    df['emp_title'] = df['emp_title'].replace({'rn': 'registered nurse'})
+    df['term_end'] = df.apply(
+        lambda row: row['issue_d'] + pd.DateOffset(months=row['term']), 
+        axis=1
+    )
+    return df
 
 
 # ---------------------------------------------------------------------
@@ -45,7 +55,13 @@ def clean_loans(loans):
 
 
 def correlations(df, pairs):
-    ...
+    data = {}
+    
+    for col1, col2 in pairs:
+        r = df[col1].corr(df[col2])
+        key = f"r_{col1}_{col2}"
+        data[key] = r
+    return pd.Series(data)
 
 
 
