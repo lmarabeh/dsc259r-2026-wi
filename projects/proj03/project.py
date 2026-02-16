@@ -184,7 +184,6 @@ class UnigramLM(object):
 
 
 class NGramLM(object):
-    
     def __init__(self, N, tokens):
         # You don't need to edit the constructor,
         # but you should understand how it works!
@@ -203,15 +202,123 @@ class NGramLM(object):
         else:
             self.prev_mdl = NGramLM(N-1, tokens)
 
+    # ----------------------------------------------------------------------
+    # 5.1: Create N-Grams
+    # ----------------------------------------------------------------------
     def create_ngrams(self, tokens):
-        ...
+        """
+        Creates a list of N-Grams from the given tokens.
+        """
+        ngrams = []
+        for i in range(len(tokens) - self.N + 1):
+            window = tokens[i : i + self.N]
+            ngrams.append(tuple(window))
         
-    def train(self, ngrams):
-        ...
-    
-    def probability(self, words):
-        ...
-    
+        return ngrams
 
+    # ----------------------------------------------------------------------
+    # 5.2: Train 
+    # ----------------------------------------------------------------------
+    def train(self, ngrams):
+        """
+        Trains the N-Gram language model on the given N-Grams.
+        """
+        # 1. Initialize DataFrame with the passed N-grams
+        df = pd.DataFrame({'ngram': ngrams})
+        
+        # 2. Create (N-1)-gram context column
+        df['n1gram'] = df['ngram'].apply(lambda x: x[:-1])
+        
+        # 3. Compute Counts
+        ngram_counts = df['ngram'].value_counts()
+        n1gram_counts = df['n1gram'].value_counts()
+        
+        # 4. Build Model
+        mdl = df.drop_duplicates(subset=['ngram']).copy()
+        
+        # 5. Calculate Probabilities
+        mdl['prob'] = (mdl['ngram'].map(ngram_counts) / 
+                       mdl['n1gram'].map(n1gram_counts))
+        
+        return mdl[['ngram', 'n1gram', 'prob']].reset_index(drop=True)
+
+    # ----------------------------------------------------------------------
+    # 5.3: Probability
+    # ----------------------------------------------------------------------
+    def probability(self, words):
+        """
+        Computes the probability of a sequence of words.
+        """
+        # Case 1: Sequence is shorter than N (Recursive Backoff)
+        if len(words) < self.N:
+            return self.prev_mdl.probability(words)
+
+        # Case 2: Sequence is long enough
+        # A. Handle the "Warm-up" (The first N-1 tokens)
+        prefix = words[:self.N - 1]
+        current_prob = self.prev_mdl.probability(prefix)
+        start_index = self.N - 1
+
+        # B. Multiply by conditional probabilities of the full N-grams
+        for i in range(start_index, len(words)):
+            current_ngram = tuple(words[i - (self.N - 1) : i + 1])
+            
+            row = self.mdl[self.mdl['ngram'] == current_ngram]
+            
+            if row.empty:
+                return 0.0
+            
+            current_prob *= row['prob'].values[0]
+            
+        return current_prob
+
+    # ----------------------------------------------------------------------
+    # 5.4: Sample
+    # ----------------------------------------------------------------------
     def sample(self, M):
-        ...
+        """
+        Generates a random sentence of length M.
+        """
+        sentence = ['\x02']
+        
+        for i in range(M):
+            if i == M - 1:
+                sentence.append('\x03')
+                continue
+            
+            next_token = self._get_next_token(sentence)
+            sentence.append(next_token)
+            
+        return " ".join(sentence)
+
+    def _get_next_token(self, current_sentence):
+        """Helper for sampling"""
+        req_context_len = self.N - 1
+        
+        # CASE 1: Not enough context
+        if len(current_sentence) < req_context_len:
+            if self.N == 2:
+                return np.random.choice(
+                    self.prev_mdl.mdl.index, 
+                    p=self.prev_mdl.mdl.values
+                )
+            else:
+                # Recursive call for N > 2
+                return self.prev_mdl._get_next_token(current_sentence)
+        
+        # CASE 2: Enough context
+        if req_context_len == 0:
+            context = ()
+        else:
+            context = tuple(current_sentence[-req_context_len:])
+            
+        candidates = self.mdl[self.mdl['n1gram'] == context]
+        
+        # Handle Dead Ends
+        if candidates.empty:
+            return '\x03'
+        
+        possible_words = candidates['ngram'].apply(lambda x: x[-1])
+        probabilities = candidates['prob']
+        
+        return np.random.choice(possible_words, p=probabilities)
